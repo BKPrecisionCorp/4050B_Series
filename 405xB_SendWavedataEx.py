@@ -1,0 +1,35 @@
+import struct
+import visa
+
+rm=visa.ResourceManager()
+li=rm.list_resources()
+for index in range(len(li)):
+    print(str(index)+" - "+li[index])
+choice = input("Which device?: ")
+vi=rm.open_resource(li[int(choice)])
+
+vi.encoding = 'latin-1' #vi.write_raw called from the vi.write needs the encoding changed
+
+print(vi.query("*idn?"))
+
+wave = bytearray()
+
+for i in range(16384):
+    wave.append(i&0xff)
+    wave.append((i&0x3f00)>>8)
+    
+vi.write_termination = '' #the next commands should not be terminated with newline char
+    
+cmd = "C1:WVDT WVNM,pavo,TYPE,5,LENGTH,32KB,FREQ,1000.0,AMPL,2,OFST,0,PHASE,0.000000,WAVEDATA,"+wave.decode('latin-1')
+vi.write(cmd)
+vi.write_termination = '\n' #the next commands should be terminated with newline char
+vi.write("C1:ARWV NAME, pavo") #Set the waveform to be the one just sent
+
+vi.write_termination = '' #the next commands should not be terminated with newline char
+resp = vi.query("wvdt? USER,pavo")#Note, the return value shows mXX+6, so m36 => M42
+
+print("returned....")
+print(len(resp))
+# Print out the data
+for i in range(96):
+    print(":", i, resp[i], ord(resp[i]), sep="_", end='')
